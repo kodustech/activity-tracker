@@ -17,6 +17,7 @@ interface Activity {
 interface DailyStats {
   total_time: number;
   productive_time: number;
+  goal_percentage: number;
   top_applications: Array<{
     application: string;
     total_duration: number;
@@ -59,6 +60,7 @@ function App() {
   const [stats, setStats] = useState<DailyStats>({
     total_time: 0,
     productive_time: 0,
+    goal_percentage: 0,
     top_applications: [],
     activities: []
   });
@@ -141,7 +143,7 @@ function App() {
                   <div>
                     <p className="text-[var(--text-secondary)] mb-1">Productive Time</p>
                     <p className="text-xl font-medium text-[var(--success)]">
-                      {formatDuration(stats.productive_time)}
+                      {formatDuration(stats.productive_time)} ({stats.goal_percentage}%)
                     </p>
                   </div>
                 </div>
