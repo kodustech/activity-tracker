@@ -74,6 +74,8 @@ async fn main() -> Result<()> {
             commands::set_app_category,
             commands::get_uncategorized_apps,
             commands::get_today_stats,
+            commands::get_daily_goal,
+            commands::set_daily_goal,
         ])
         .setup(|app| {
             let window = app.get_window("main").unwrap();
@@ -82,10 +84,13 @@ async fn main() -> Result<()> {
             // Atualiza o menu da top bar periodicamente
             let app_handle = app.handle();
             tokio::spawn(async move {
+                // Atualiza imediatamente ao iniciar
+                menu::update_tray_menu(&app_handle).await;
+                
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
                 loop {
-                    menu::update_tray_menu(&app_handle).await;
                     interval.tick().await;
+                    menu::update_tray_menu(&app_handle).await;
                 }
             });
 

@@ -17,10 +17,10 @@ pub struct TimeRange {
 
 #[derive(Debug, Serialize)]
 pub struct DailyStats {
-    total_time: i64,
-    productive_time: i64,
-    top_applications: Vec<ApplicationStats>,
-    activities: Vec<WindowActivity>,
+    pub total_time: i64,
+    pub productive_time: i64,
+    pub top_applications: Vec<ApplicationStats>,
+    pub activities: Vec<WindowActivity>,
 }
 
 #[derive(Debug, Serialize)]
@@ -210,36 +210,28 @@ pub async fn delete_category(
 
 #[tauri::command(rename_all = "snake_case")]
 pub async fn set_app_category(
+    app: tauri::AppHandle,
     state: State<'_, Mutex<CategoryConfig>>,
     app_name: String,
     category_id: String,
 ) -> Result<(), String> {
     info!("Received request to set category. App: '{}', Category ID: '{}'", app_name, category_id);
     
-    let mut config = match state.lock() {
-        Ok(config) => {
-            info!("Successfully acquired lock on config");
-            config
-        },
-        Err(e) => {
-            error!("Failed to acquire lock on config: {}", e);
-            return Err(e.to_string());
-        }
-    };
+    // Faz a alteração dentro de um escopo para garantir que o lock é liberado
+    {
+        let mut config = state.lock().map_err(|e| e.to_string())?;
+        config.set_app_category(app_name, category_id).map_err(|e| e.to_string())?;
+    } // lock é liberado aqui
     
-    info!("Current categories: {:?}", config.categories);
-    info!("Current app categories: {:?}", config.app_categories);
-    
-    match config.set_app_category(app_name, category_id) {
-        Ok(()) => {
-            info!("Successfully set app category");
-            Ok(())
-        },
-        Err(e) => {
-            error!("Failed to set app category: {}", e);
-            Err(e.to_string())
+    // Spawn a new task to update the menu
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = Box::pin(crate::menu::update_tray_menu(&app_handle)).await {
+            error!("Failed to update menu: {}", e);
         }
-    }
+    });
+    
+    Ok(())
 }
 
 #[tauri::command]
@@ -267,6 +259,24 @@ pub async fn get_uncategorized_apps(
 
 #[tauri::command]
 pub async fn get_today_stats(
+    app: tauri::AppHandle,
+    db: State<'_, DbConnection>,
+    config: State<'_, Mutex<CategoryConfig>>,
+) -> Result<(i64, i64), String> {
+    let result = get_today_stats_internal(db, config).await?;
+    
+    // Atualiza o menu em uma nova task
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = crate::menu::update_tray_menu(&app_handle).await {
+            error!("Failed to update menu: {}", e);
+        }
+    });
+    
+    Ok(result)
+}
+
+pub async fn get_today_stats_internal(
     db: State<'_, DbConnection>,
     config: State<'_, Mutex<CategoryConfig>>,
 ) -> Result<(i64, i64), String> {
@@ -318,4 +328,33 @@ pub async fn get_today_stats(
         .sum();
 
     Ok((total_time, productive_time))
+}
+
+async fn get_category_config() -> Result<CategoryConfig, String> {
+    CategoryConfig::load().map_err(|e| e.to_string())
+}
+
+async fn save_category_config(config: &CategoryConfig) -> Result<(), String> {
+    config.save().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_daily_goal() -> Result<i64, String> {
+    let config = get_category_config().await?;
+    Ok(config.daily_goal_minutes)
+}
+
+#[tauri::command]
+pub async fn set_daily_goal(
+    app: tauri::AppHandle,
+    minutes: i64
+) -> Result<(), String> {
+    let mut config = get_category_config().await?;
+    config.daily_goal_minutes = minutes;
+    save_category_config(&config).await?;
+    
+    // Atualiza o menu
+    crate::menu::update_tray_menu(&app).await;
+    
+    Ok(())
 } 
