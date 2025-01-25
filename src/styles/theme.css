@@ -1,0 +1,82 @@
+:root {
+    /* Light Theme */
+    --light-text-primary: #000000;
+    --light-text-secondary: #666666;
+    --light-surface-primary: #ffffff;
+    --light-surface-secondary: rgba(255, 255, 255, 0.8);
+    --light-surface-tertiary: #f5f5f5;
+    --light-accent: #007AFF;
+    --light-error: #FF3B30;
+    --light-background: #f5f5f7;
+
+    /* Dark Theme */
+    --dark-text-primary: #ffffff;
+    --dark-text-secondary: #a1a1a6;
+    --dark-surface-primary: #1c1c1e;
+    --dark-surface-secondary: rgba(28, 28, 30, 0.8);
+    --dark-surface-tertiary: #2c2c2e;
+    --dark-accent: #0A84FF;
+    --dark-error: #FF453A;
+    --dark-background: #000000;
+}
+
+/* Default to dark theme */
+:root {
+    color-scheme: dark;
+    
+    --text-primary: var(--dark-text-primary);
+    --text-secondary: var(--dark-text-secondary);
+    --surface-primary: var(--dark-surface-primary);
+    --surface-secondary: var(--dark-surface-secondary);
+    --surface-tertiary: var(--dark-surface-tertiary);
+    --accent: var(--dark-accent);
+    --error: var(--dark-error);
+    --background: var(--dark-background);
+}
+
+/* Light theme */
+@media (prefers-color-scheme: light) {
+    :root {
+        --text-primary: var(--light-text-primary);
+        --text-secondary: var(--light-text-secondary);
+        --surface-primary: var(--light-surface-primary);
+        --surface-secondary: var(--light-surface-secondary);
+        --surface-tertiary: var(--light-surface-tertiary);
+        --accent: var(--light-accent);
+        --error: var(--light-error);
+        --background: var(--light-background);
+    }
+}
+
+body {
+    background-color: var(--background);
+    color: var(--text-primary);
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--surface-tertiary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--text-secondary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-primary);
+} 
