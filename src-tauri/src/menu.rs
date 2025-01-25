@@ -1,12 +1,12 @@
+use image::{ImageBuffer, Rgba, RgbaImage};
 use tauri::{
-    AppHandle, CustomMenuItem, Manager, SystemTray,
-    SystemTrayEvent, SystemTrayMenu, SystemTrayMenuItem,
+    AppHandle, CustomMenuItem, Manager, SystemTray, SystemTrayEvent, SystemTrayMenu,
+    SystemTrayMenuItem,
 };
 use std::sync::Mutex;
 use tracing::info;
 use crate::database::DbConnection;
 use crate::category::CategoryConfig;
-use image::{ImageBuffer, Rgba, RgbaImage};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
 

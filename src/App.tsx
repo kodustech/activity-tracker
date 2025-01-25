@@ -35,6 +35,7 @@ function App() {
     total_time: 0,
     productive_time: 0,
     goal_percentage: 0,
+    idle_time: 0,
     top_applications: [],
     activities: []
   });
@@ -45,6 +46,35 @@ function App() {
       setError(null);
       const rfc3339Date = new Date(date).toISOString();
       const result = await invoke<DailyStats>('get_daily_stats', { date: rfc3339Date });
+      
+      console.log('📊 Daily Stats:', {
+        total: formatDuration(result.total_time),
+        productive: formatDuration(result.productive_time),
+        idle: formatDuration(result.idle_time),
+        apps: result.top_applications.length
+      });
+
+      // Log de cada aplicativo
+      result.top_applications.forEach(app => {
+        console.log(`📱 ${app.application}:`, {
+          total: formatDuration(app.total_duration),
+          idle: app.idle_duration ? formatDuration(app.idle_duration) : '0m',
+          activities: app.activities.length,
+          category: app.category?.name
+        });
+
+        // Log de atividades idle
+        const idleActivities = app.activities.filter(a => a.is_idle);
+        if (idleActivities.length > 0) {
+          console.log(`  🔍 Idle Activities (${idleActivities.length}):`, 
+            idleActivities.map(a => ({
+              time: `${new Date(a.start_time).toLocaleTimeString()} - ${new Date(a.end_time).toLocaleTimeString()}`,
+              title: a.title
+            }))
+          );
+        }
+      });
+
       setActivities(result.activities);
       setStats(result);
     } catch (err) {
@@ -57,6 +87,17 @@ function App() {
 
   useEffect(() => {
     fetchActivities(selectedDate);
+
+    // Auto-refresh a cada 30 segundos se estiver visualizando o dia atual
+    const isToday = selectedDate === new Date().toISOString().split('T')[0];
+    let refreshInterval: number | undefined;
+
+    if (isToday) {
+      refreshInterval = setInterval(() => {
+        console.log("🔄 Auto-refreshing activities...");
+        fetchActivities(selectedDate);
+      }, 30000); // 30 segundos
+    }
 
     const setupListeners = async () => {
       await listen('show_stats', () => {
@@ -73,6 +114,13 @@ function App() {
     };
 
     setupListeners();
+
+    // Cleanup
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
   }, [selectedDate]);
 
   return (
@@ -116,7 +164,7 @@ function App() {
                     {new Date(selectedDate).toLocaleDateString()}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-3 gap-6">
                   <div>
                     <p className="text-[var(--text-secondary)] mb-1">Total Time</p>
                     <p className="text-xl font-medium">
@@ -127,6 +175,12 @@ function App() {
                     <p className="text-[var(--text-secondary)] mb-1">Productive Time</p>
                     <p className="text-xl font-medium text-[var(--success)]">
                       {formatDuration(stats.productive_time)} ({stats.goal_percentage}%)
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[var(--text-secondary)] mb-1">Idle Time</p>
+                    <p className="text-xl font-medium text-[var(--warning)]">
+                      {formatDuration(stats.idle_time)}
                     </p>
                   </div>
                 </div>
@@ -161,11 +215,18 @@ function App() {
                           </span>
                         )}
                       </div>
-                      <span className="text-[var(--text-secondary)]">
-                        {formatDuration(app.total_duration)}
-                      </span>
+                      <div className="flex items-center gap-4">
+                        {app.idle_duration && app.idle_duration > 0 && (
+                          <span className="text-[var(--warning)] text-sm">
+                            Idle: {formatDuration(app.idle_duration)}
+                          </span>
+                        )}
+                        <span className="text-[var(--text-secondary)]">
+                          {formatDuration(app.total_duration)}
+                        </span>
+                      </div>
                     </div>
-                    
+
                     <div className="mt-2 text-sm text-[var(--text-secondary)]">
                       {new Date(app.activities[0].start_time).toLocaleTimeString()} -{' '}
                       {new Date(app.activities[app.activities.length - 1].end_time).toLocaleTimeString()}
@@ -174,10 +235,17 @@ function App() {
                     <div className="mt-4 space-y-3">
                       {app.activities.map((activity) => (
                         <div 
-                          key={activity.id}
-                          className="pl-4 border-l border-[var(--border)] text-sm"
+                          key={`${activity.start_time}-${activity.title}`}
+                          className={`pl-4 border-l border-[var(--border)] text-sm ${
+                            activity.is_idle ? 'opacity-60' : ''
+                          }`}
                         >
-                          <div className="text-[var(--text-primary)]">{activity.title}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-[var(--text-primary)]">{activity.title}</div>
+                            {activity.is_idle && (
+                              <span className="text-[var(--warning)] text-xs">idle</span>
+                            )}
+                          </div>
                           <div className="text-[var(--text-secondary)]">
                             {new Date(activity.start_time).toLocaleTimeString()} -{' '}
                             {new Date(activity.end_time).toLocaleTimeString()}
