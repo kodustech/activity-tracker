@@ -9,7 +9,6 @@ use crate::category::CategoryConfig;
 use image::{ImageBuffer, Rgba, RgbaImage};
 use imageproc::drawing::draw_text_mut;
 use rusttype::{Font, Scale};
-use std::io::Cursor;
 
 fn format_duration(seconds: i64) -> String {
     let hours = seconds / 3600;

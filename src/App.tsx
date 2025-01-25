@@ -2,43 +2,17 @@ import { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { Settings } from './Settings';
+import { Analytics } from './Analytics';
 import './index.css';
+import { DailyStats, WindowActivity } from './types/activity';
 
-interface Activity {
-  id: number;
-  application: string;
-  title: string;
-  start_time: string;
-  end_time: string;
-  is_browser: boolean;
-  day: string;
-}
-
-interface DailyStats {
-  total_time: number;
-  productive_time: number;
-  goal_percentage: number;
-  top_applications: Array<{
-    application: string;
-    total_duration: number;
-    activities: Activity[];
-    category?: Category;
-  }>;
-  activities: Activity[];
-}
+type View = 'activities' | 'settings' | 'analytics';
 
 interface Category {
   id: string;
   name: string;
   color: string;
   is_productive: boolean;
-}
-
-interface ApplicationStats {
-  application: string;
-  total_duration: number;
-  activities: Activity[];
-  category?: Category;
 }
 
 function formatDuration(seconds: number): string {
@@ -52,11 +26,11 @@ function formatDuration(seconds: number): string {
 }
 
 function App() {
-  const [activities, setActivities] = useState<Activity[]>([]);
+  const [activities, setActivities] = useState<WindowActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [currentView, setCurrentView] = useState<'activities' | 'settings'>('activities');
+  const [currentView, setCurrentView] = useState<View>('activities');
   const [stats, setStats] = useState<DailyStats>({
     total_time: 0,
     productive_time: 0,
@@ -106,14 +80,23 @@ function App() {
       <div className="max-w-6xl mx-auto p-6">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-2xl font-semibold">
-            {currentView === 'activities' ? 'Activity Tracker' : 'Settings'}
+            {currentView === 'activities' ? 'Activity Tracker' : 
+             currentView === 'settings' ? 'Settings' : 'Analytics'}
           </h1>
-          <button
-            onClick={() => setCurrentView(currentView === 'activities' ? 'settings' : 'activities')}
-            className="btn-secondary"
-          >
-            {currentView === 'activities' ? 'Settings' : 'Back to Activities'}
-          </button>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setCurrentView('analytics')}
+              className={`btn-secondary ${currentView === 'analytics' ? 'bg-[var(--accent)] text-white' : ''}`}
+            >
+              Analytics
+            </button>
+            <button
+              onClick={() => setCurrentView(currentView === 'activities' ? 'settings' : 'activities')}
+              className="btn-secondary"
+            >
+              {currentView === 'activities' ? 'Settings' : 'Back to Activities'}
+            </button>
+          </div>
         </div>
 
         {currentView === 'activities' ? (
@@ -207,8 +190,10 @@ function App() {
               </div>
             )}
           </div>
-        ) : (
+        ) : currentView === 'settings' ? (
           <Settings />
+        ) : (
+          <Analytics />
         )}
       </div>
     </div>
