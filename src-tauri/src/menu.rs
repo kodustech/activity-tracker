@@ -6,6 +6,10 @@ use std::sync::Mutex;
 use tracing::info;
 use crate::database::DbConnection;
 use crate::category::CategoryConfig;
+use image::{ImageBuffer, Rgba, RgbaImage};
+use imageproc::drawing::draw_text_mut;
+use rusttype::{Font, Scale};
+use std::io::Cursor;
 
 fn format_duration(seconds: i64) -> String {
     let hours = seconds / 3600;
@@ -18,6 +22,50 @@ fn format_duration(seconds: i64) -> String {
     }
 }
 
+fn generate_dynamic_icon(value: i64) -> Result<Vec<u8>, String> {
+    // Configurações do ícone
+    let width = 22;
+    let height = 22;
+    
+    // Cria imagem transparente
+    let mut img: RgbaImage = ImageBuffer::new(width, height);
+    
+    // Preenche com pixels transparentes
+    for pixel in img.pixels_mut() {
+        *pixel = Rgba([0, 0, 0, 0]);
+    }
+    
+    // Desenha um número simples
+    let text = format!("{}%", value);
+    let x = 2;
+    let y = 2;
+    
+    // Desenha cada caractere como pixels
+    for (i, c) in text.chars().enumerate() {
+        let offset = i as u32 * 6;
+        match c {
+            '0'..='9' => {
+                for dx in 0..5 {
+                    for dy in 0..7 {
+                        img.put_pixel(x + offset + dx, y + dy, Rgba([255, 255, 255, 255]));
+                    }
+                }
+            },
+            '%' => {
+                for dx in 0..5 {
+                    img.put_pixel(x + offset + dx, y + dx, Rgba([255, 255, 255, 255]));
+                }
+            },
+            _ => {}
+        }
+    }
+    
+    // Converte para RGBA raw bytes
+    let raw_data: Vec<u8> = img.pixels().flat_map(|p| p.0.to_vec()).collect();
+    
+    Ok(raw_data)
+}
+
 pub fn create_tray_menu() -> SystemTray {
     let tracked = CustomMenuItem::new("tracked".to_string(), "Tracked: --");
     let productive = CustomMenuItem::new("productive".to_string(), "Productive: --");
@@ -25,14 +73,14 @@ pub fn create_tray_menu() -> SystemTray {
     let quit = CustomMenuItem::new("quit".to_string(), "Quit");
     
     let tray_menu = SystemTrayMenu::new()
+        .add_item(progress.disabled())
+        .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(tracked.disabled())
         .add_item(productive.disabled())
-        .add_item(progress.disabled())
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit);
 
     SystemTray::new()
-        .with_title("")
         .with_menu(tray_menu)
 }
 
@@ -111,20 +159,28 @@ pub async fn update_tray_menu(app: &AppHandle) -> Result<(), String> {
     // Format durations
     let tracked = CustomMenuItem::new("tracked", format!("Tracked: {}", format_duration(total_minutes * 60)));
     let productive = CustomMenuItem::new("productive", format!("Productive: {} ({}%)", format_duration(productive_minutes * 60), goal_percentage));
-    let progress = CustomMenuItem::new("progress", create_progress_bar(goal_percentage));
+    let progress = CustomMenuItem::new("progress", format!("🎯 {}%", goal_percentage));
     let quit = CustomMenuItem::new("quit", "Quit");
     
     // Create menu
     let tray_menu = SystemTrayMenu::new()
-        .add_item(tracked)
-        .add_item(productive)
-        .add_item(progress)
+        .add_item(progress.disabled())
+        .add_native_item(SystemTrayMenuItem::Separator)
+        .add_item(tracked.disabled())
+        .add_item(productive.disabled())
         .add_native_item(SystemTrayMenuItem::Separator)
         .add_item(quit);
     
     // Update the menu
     let tray_handle = app.tray_handle();
     tray_handle.set_menu(tray_menu).map_err(|e| e.to_string())?;
+    
+    // Update the title with percentage
+    let title = format!("{}%", goal_percentage);
+    info!("Setting tray title to: {}", title);
+    if let Err(e) = tray_handle.set_title(&title) {
+        info!("Failed to set tray title: {}", e);
+    }
     
     Ok(())
 } 

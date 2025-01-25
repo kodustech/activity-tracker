@@ -14,7 +14,8 @@
     "systemTray": {
       "iconPath": "icons/icon.png",
       "iconAsTemplate": true,
-      "menuOnLeftClick": true
+      "menuOnLeftClick": true,
+      "title": "0%"
     },
     "allowlist": {
       "all": false,

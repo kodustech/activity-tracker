@@ -85,12 +85,16 @@ async fn main() -> Result<()> {
             let app_handle = app.handle();
             tokio::spawn(async move {
                 // Atualiza imediatamente ao iniciar
-                menu::update_tray_menu(&app_handle).await;
+                if let Err(e) = menu::update_tray_menu(&app_handle).await {
+                    error!("Failed to update tray menu: {}", e);
+                }
                 
-                let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
                 loop {
                     interval.tick().await;
-                    menu::update_tray_menu(&app_handle).await;
+                    if let Err(e) = menu::update_tray_menu(&app_handle).await {
+                        error!("Failed to update tray menu: {}", e);
+                    }
                 }
             });
 
