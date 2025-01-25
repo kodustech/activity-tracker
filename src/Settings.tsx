@@ -22,6 +22,7 @@ export function Settings() {
     color: '#6366f1',
     is_productive: false,
   });
+  const [dailyGoal, setDailyGoal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,10 +33,11 @@ export function Settings() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [categoriesResult, appCategoriesResult, uncategorizedResult] = await Promise.all([
+      const [categoriesResult, appCategoriesResult, uncategorizedResult, goalResult] = await Promise.all([
         invoke<Category[]>('get_categories'),
         invoke<[string, string][]>('get_app_categories'),
         invoke<string[]>('get_uncategorized_apps'),
+        invoke<number>('get_daily_goal')
       ]);
 
       setCategories(categoriesResult);
@@ -46,6 +48,7 @@ export function Settings() {
         }))
       );
       setUncategorizedApps(uncategorizedResult);
+      setDailyGoal(goalResult);
     } catch (err) {
       console.error('Error loading data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -64,6 +67,7 @@ export function Settings() {
 
       setCategories([...categories, category]);
       setNewCategory({ name: '', color: '#6366f1', is_productive: false });
+      await invoke('get_today_stats');
     } catch (err) {
       console.error('Error adding category:', err);
       setError(err instanceof Error ? err.message : 'Failed to add category');
@@ -93,6 +97,7 @@ export function Settings() {
       await invoke('delete_category', { id });
       setCategories(categories.filter((c) => c.id !== id));
       await loadData(); // Recarrega os dados para atualizar a lista de apps não categorizados
+      await invoke('get_today_stats');
     } catch (err) {
       console.error('Error deleting category:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete category');
@@ -102,15 +107,25 @@ export function Settings() {
   const handleSetAppCategory = async (appName: string, categoryId: string) => {
     try {
       console.log('Setting category', { appName, categoryId });
-      const result = await invoke('set_app_category', {
+      await invoke('set_app_category', {
         app_name: appName,
         category_id: categoryId,
       });
-      console.log('Category set successfully', result);
       await loadData();
+      await invoke('get_today_stats');
     } catch (err) {
       console.error('Detailed error setting app category:', err);
       setError(err instanceof Error ? err.message : 'Failed to set app category');
+    }
+  };
+
+  const handleDailyGoalChange = async (minutes: number) => {
+    try {
+      await invoke('set_daily_goal', { minutes });
+      setDailyGoal(minutes);
+      await invoke('get_today_stats');
+    } catch (err) {
+      setError('Failed to update daily goal');
     }
   };
 
@@ -124,6 +139,20 @@ export function Settings() {
 
   return (
     <div className="space-y-8">
+      <div className="card">
+        <h2 className="text-lg font-medium mb-6">Daily Goal</h2>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="0"
+            value={dailyGoal}
+            onChange={(e) => handleDailyGoalChange(parseInt(e.target.value) || 0)}
+            className="border rounded px-2 py-1 w-24"
+          />
+          <span>minutes of productive work per day</span>
+        </div>
+      </div>
+
       <div className="card">
         <h2 className="text-lg font-medium mb-6">Categories</h2>
 

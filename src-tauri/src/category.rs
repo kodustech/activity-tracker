@@ -18,6 +18,7 @@ pub struct Category {
 pub struct CategoryConfig {
     pub categories: Vec<Category>,
     pub app_categories: HashMap<String, String>, // app_name -> category_id
+    pub daily_goal_minutes: i64, // Meta diária em minutos
 }
 
 impl CategoryConfig {
@@ -60,6 +61,7 @@ impl CategoryConfig {
         CategoryConfig {
             categories: Self::create_default_categories(),
             app_categories: HashMap::new(),
+            daily_goal_minutes: 240, // Meta padrão de 4 horas
         }
     }
 
@@ -71,7 +73,14 @@ impl CategoryConfig {
         }
 
         let content = fs::read_to_string(config_file)?;
-        let config = serde_json::from_str(&content)?;
+        let mut config: CategoryConfig = serde_json::from_str(&content)?;
+        
+        // Garante que daily_goal_minutes está definido
+        if config.daily_goal_minutes == 0 {
+            config.daily_goal_minutes = 240; // Meta padrão de 4 horas
+            config.save()?;
+        }
+        
         Ok(config)
     }
 

@@ -8,10 +8,16 @@
   },
   "package": {
     "productName": "chronos-track",
-    "version": "0.1.0"
+    "version": "0.0.0"
   },
   "tauri": {
+    "systemTray": {
+      "iconPath": "icons/icon.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": true
+    },
     "allowlist": {
+      "all": false,
       "window": {
         "all": true
       }
@@ -52,11 +58,6 @@
     "security": {
       "csp": null
     },
-    "systemTray": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": true
-    },
     "updater": {
       "active": false
     },
@@ -66,11 +67,7 @@
         "height": 600,
         "resizable": true,
         "title": "Chronos Track",
-        "width": 800,
-        "visible": true,
-        "decorations": true,
-        "transparent": false,
-        "skipTaskbar": false
+        "width": 800
       }
     ]
   }
