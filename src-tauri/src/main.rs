@@ -65,7 +65,8 @@ async fn main() -> Result<()> {
         .invoke_handler(tauri::generate_handler![
             commands::get_activities,
             commands::get_daily_stats,
-            commands::get_activities_for_day,
+            commands::get_weekly_stats,
+            commands::get_monthly_stats,
             commands::get_categories,
             commands::get_app_categories,
             commands::add_category,

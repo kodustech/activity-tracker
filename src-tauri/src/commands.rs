@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc, Duration, NaiveDateTime, Datelike};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use std::sync::Mutex;
@@ -367,4 +367,107 @@ pub async fn set_daily_goal(
     crate::menu::update_tray_menu(&app).await;
     
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_weekly_stats(
+    date: DateTime<Utc>,
+    db: State<'_, DbConnection>,
+    config: State<'_, Mutex<CategoryConfig>>,
+) -> Result<DailyStats, String> {
+    let start_of_week = date.date_naive().and_hms_opt(0, 0, 0).unwrap()
+        - Duration::days(date.weekday().num_days_from_monday() as i64);
+    let end_of_week = start_of_week + Duration::days(7) - Duration::nanoseconds(1);
+    
+    get_stats_for_range(&db, config, start_of_week.and_utc(), end_of_week.and_utc()).await
+}
+
+#[tauri::command]
+pub async fn get_monthly_stats(
+    date: DateTime<Utc>,
+    db: State<'_, DbConnection>,
+    config: State<'_, Mutex<CategoryConfig>>,
+) -> Result<DailyStats, String> {
+    let start_of_month = date.date_naive().and_hms_opt(0, 0, 0).unwrap()
+        .with_day(1).unwrap();
+    let end_of_month = if let Some(next_month) = DateTime::<Utc>::from_timestamp(
+        start_of_month.and_utc().timestamp() + 32 * 24 * 60 * 60, 0
+    ) {
+        next_month.date_naive().with_day(1).unwrap()
+            .and_hms_opt(0, 0, 0).unwrap()
+            - Duration::nanoseconds(1)
+    } else {
+        start_of_month + Duration::days(30)
+    };
+    
+    get_stats_for_range(&db, config, start_of_month.and_utc(), end_of_month.and_utc()).await
+}
+
+async fn get_stats_for_range(
+    db: &DbConnection,
+    config: State<'_, Mutex<CategoryConfig>>,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<DailyStats, String> {
+    let activities = database::get_activities_between(&db, start, end)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let config = config.lock().map_err(|e| e.to_string())?;
+
+    // Agrupa atividades por aplicativo
+    let mut app_stats: std::collections::HashMap<String, Vec<WindowActivity>> = std::collections::HashMap::new();
+    for activity in activities.iter() {
+        app_stats.entry(activity.application.clone())
+            .or_default()
+            .push(activity.clone());
+    }
+
+    // Calcula estatísticas por aplicativo
+    let mut top_applications: Vec<ApplicationStats> = app_stats
+        .into_iter()
+        .map(|(app, activities)| {
+            let total_duration = activities.iter()
+                .map(|a| (a.end_time - a.start_time).num_seconds())
+                .sum();
+            
+            let category = config.get_category_for_app(&app).cloned();
+            
+            ApplicationStats {
+                application: app,
+                total_duration,
+                activities,
+                category,
+            }
+        })
+        .collect();
+
+    // Ordena por duração total
+    top_applications.sort_by(|a, b| b.total_duration.cmp(&a.total_duration));
+
+    // Calcula tempos totais
+    let total_time: i64 = top_applications.iter()
+        .map(|app| app.total_duration)
+        .sum();
+
+    let productive_time: i64 = top_applications.iter()
+        .filter(|app| app.category.as_ref().map_or(false, |c| c.is_productive))
+        .map(|app| app.total_duration)
+        .sum();
+
+    // Calcula a porcentagem da meta
+    let productive_minutes = productive_time / 60;
+    let goal_percentage = if config.daily_goal_minutes > 0 {
+        ((productive_minutes as f64 / config.daily_goal_minutes as f64) * 100.0).round() as i64
+    } else {
+        0
+    };
+
+    Ok(DailyStats {
+        total_time,
+        productive_time,
+        goal_percentage,
+        top_applications: top_applications.into_iter().take(5).collect(),
+        activities,
+    })
 } 
