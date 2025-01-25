@@ -123,47 +123,27 @@ export function Settings() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          Categories
-        </h2>
+    <div className="space-y-8">
+      <div className="card">
+        <h2 className="text-lg font-medium mb-6">Categories</h2>
 
         <div className="space-y-4">
           {categories.map((category) => (
             <div
               key={category.id}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+              className="flex items-center justify-between p-3 bg-[var(--surface-hover)] rounded-md"
             >
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <div
-                  className="w-4 h-4 rounded"
+                  className="w-3 h-3 rounded"
                   style={{ backgroundColor: category.color }}
                 />
-                <span className="text-gray-900 dark:text-white">
-                  {category.name}
-                </span>
+                <span>{category.name}</span>
               </div>
-              <div className="flex items-center space-x-4">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    checked={category.is_productive}
-                    onChange={(e) =>
-                      handleUpdateCategory({
-                        ...category,
-                        is_productive: e.target.checked,
-                      })
-                    }
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-600 dark:text-gray-300">
-                    Productive
-                  </span>
-                </label>
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => handleDeleteCategory(category.id)}
-                  className="text-red-500 hover:text-red-700"
+                  className="btn-secondary text-sm"
                 >
                   Delete
                 </button>
@@ -171,8 +151,8 @@ export function Settings() {
             </div>
           ))}
 
-          <div className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="pt-4 border-t border-[var(--border)]">
+            <div className="flex gap-4 mb-4">
               <input
                 type="text"
                 value={newCategory.name}
@@ -180,7 +160,7 @@ export function Settings() {
                   setNewCategory({ ...newCategory, name: e.target.value })
                 }
                 placeholder="Category name"
-                className="p-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                className="flex-1"
               />
               <input
                 type="color"
@@ -188,51 +168,49 @@ export function Settings() {
                 onChange={(e) =>
                   setNewCategory({ ...newCategory, color: e.target.value })
                 }
-                className="p-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                className="w-12 h-10 p-1 bg-[var(--surface)] rounded border border-[var(--border)]"
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={newCategory.is_productive}
-                onChange={(e) =>
-                  setNewCategory({
-                    ...newCategory,
-                    is_productive: e.target.checked,
-                  })
-                }
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-sm text-gray-600 dark:text-gray-300">
-                Productive
-              </span>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center space-x-2 text-[var(--text-secondary)]">
+                <input
+                  type="checkbox"
+                  checked={newCategory.is_productive}
+                  onChange={(e) =>
+                    setNewCategory({
+                      ...newCategory,
+                      is_productive: e.target.checked,
+                    })
+                  }
+                  className="rounded border-[var(--border)]"
+                />
+                <span>Is Productive</span>
+              </label>
+              <button
+                onClick={handleAddCategory}
+                disabled={!newCategory.name}
+                className="btn-primary"
+              >
+                Add Category
+              </button>
             </div>
-            <button
-              onClick={handleAddCategory}
-              disabled={!newCategory.name}
-              className="w-full p-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-            >
-              Add Category
-            </button>
           </div>
         </div>
       </div>
 
       {uncategorizedApps.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Uncategorized Applications
-          </h2>
-          <div className="space-y-2">
+        <div className="card">
+          <h2 className="text-lg font-medium mb-6">Uncategorized Applications</h2>
+          <div className="space-y-3">
             {uncategorizedApps.map((app) => (
               <div
                 key={app}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded"
+                className="flex items-center justify-between p-3 bg-[var(--surface-hover)] rounded-md"
               >
-                <span className="text-gray-900 dark:text-white">{app}</span>
+                <span>{app}</span>
                 <select
                   onChange={(e) => handleSetAppCategory(app, e.target.value)}
-                  className="ml-4 p-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="w-48"
                   defaultValue=""
                 >
                   <option value="" disabled>
@@ -250,22 +228,19 @@ export function Settings() {
         </div>
       )}
 
-      {/* Seção de Apps Categorizados */}
       {appCategories.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Categorized Applications
-          </h2>
-          <div className="space-y-2">
+        <div className="card">
+          <h2 className="text-lg font-medium mb-6">Categorized Applications</h2>
+          <div className="space-y-3">
             {appCategories.map(({app_name, category_id}) => (
               <div
                 key={app_name}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded"
+                className="flex items-center justify-between p-3 bg-[var(--surface-hover)] rounded-md"
               >
-                <span className="text-gray-900 dark:text-white">{app_name}</span>
+                <span>{app_name}</span>
                 <select
                   onChange={(e) => handleSetAppCategory(app_name, e.target.value)}
-                  className="ml-4 p-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  className="w-48"
                   value={category_id}
                 >
                   {categories.map((category) => (
