@@ -79,6 +79,12 @@ async fn main() -> Result<()> {
             window.set_title("Chronos Track").unwrap();
             Ok(())
         })
+        .on_window_event(|event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+                event.window().hide().unwrap();
+                api.prevent_close();
+            }
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 
