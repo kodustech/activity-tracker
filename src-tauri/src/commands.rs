@@ -263,4 +263,59 @@ pub async fn get_uncategorized_apps(
         .collect();
 
     Ok(uncategorized)
+}
+
+#[tauri::command]
+pub async fn get_today_stats(
+    db: State<'_, DbConnection>,
+    config: State<'_, Mutex<CategoryConfig>>,
+) -> Result<(i64, i64), String> {
+    let now = Utc::now();
+    let start = now.date_naive().and_hms_opt(0, 0, 0).unwrap();
+    let end = now.date_naive().and_hms_opt(23, 59, 59).unwrap();
+    
+    let activities = database::get_activities_between(&db, start.and_utc(), end.and_utc())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let config = config.lock().map_err(|e| e.to_string())?;
+
+    // Agrupa atividades por aplicativo
+    let mut app_stats: std::collections::HashMap<String, Vec<WindowActivity>> = std::collections::HashMap::new();
+    for activity in activities.iter() {
+        app_stats.entry(activity.application.clone())
+            .or_default()
+            .push(activity.clone());
+    }
+
+    // Calcula estatísticas por aplicativo
+    let top_applications: Vec<ApplicationStats> = app_stats
+        .into_iter()
+        .map(|(app, activities)| {
+            let total_duration = activities.iter()
+                .map(|a| (a.end_time - a.start_time).num_seconds())
+                .sum();
+            
+            let category = config.get_category_for_app(&app).cloned();
+            
+            ApplicationStats {
+                application: app,
+                total_duration,
+                activities,
+                category,
+            }
+        })
+        .collect();
+
+    // Calcula tempos totais
+    let total_time: i64 = top_applications.iter()
+        .map(|app| app.total_duration)
+        .sum();
+
+    let productive_time: i64 = top_applications.iter()
+        .filter(|app| app.category.as_ref().map_or(false, |c| c.is_productive))
+        .map(|app| app.total_duration)
+        .sum();
+
+    Ok((total_time, productive_time))
 } 

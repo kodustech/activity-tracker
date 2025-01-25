@@ -73,10 +73,22 @@ async fn main() -> Result<()> {
             commands::delete_category,
             commands::set_app_category,
             commands::get_uncategorized_apps,
+            commands::get_today_stats,
         ])
         .setup(|app| {
             let window = app.get_window("main").unwrap();
             window.set_title("Chronos Track").unwrap();
+
+            // Atualiza o menu da top bar periodicamente
+            let app_handle = app.handle();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+                loop {
+                    menu::update_tray_menu(&app_handle).await;
+                    interval.tick().await;
+                }
+            });
+
             Ok(())
         })
         .on_window_event(|event| {
