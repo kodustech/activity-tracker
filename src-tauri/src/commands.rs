@@ -19,6 +19,7 @@ pub struct TimeRange {
 pub struct DailyStats {
     pub total_time: i64,
     pub productive_time: i64,
+    pub goal_percentage: i64,
     pub top_applications: Vec<ApplicationStats>,
     pub activities: Vec<WindowActivity>,
 }
@@ -116,11 +117,20 @@ pub async fn get_daily_stats(
         .map(|app| app.total_duration)
         .sum();
 
-    info!("Total time: {}, Productive time: {}", total_time, productive_time);
+    // Calcula a porcentagem da meta
+    let productive_minutes = productive_time / 60;
+    let goal_percentage = if config.daily_goal_minutes > 0 {
+        ((productive_minutes as f64 / config.daily_goal_minutes as f64) * 100.0).round() as i64
+    } else {
+        0
+    };
+
+    info!("Total time: {}, Productive time: {}, Goal: {}%", total_time, productive_time, goal_percentage);
 
     Ok(DailyStats {
         total_time,
         productive_time,
+        goal_percentage,
         top_applications: top_applications.into_iter().take(5).collect(),
         activities,
     })
