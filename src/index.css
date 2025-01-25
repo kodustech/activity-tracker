@@ -1,3 +1,59 @@
 @tailwind base;
 @tailwind components;
-@tailwind utilities; 
+@tailwind utilities;
+
+:root {
+  --background: #000000;
+  --surface: #111111;
+  --surface-hover: #1a1a1a;
+  --border: #2a2a2a;
+  --text-primary: #ffffff;
+  --text-secondary: #999999;
+  --accent: #5E6AD2;
+  --accent-hover: #6E7AE2;
+  --success: #2ECC71;
+  --error: #E74C3C;
+}
+
+body {
+  @apply bg-[var(--background)] text-[var(--text-primary)] antialiased;
+  font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+}
+
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Estilo Linear-like para inputs */
+input, select {
+  @apply bg-[var(--surface)] border border-[var(--border)] rounded-md px-3 py-2 
+         focus:outline-none focus:ring-1 focus:ring-[var(--accent)] 
+         hover:border-[var(--accent)] transition-all;
+}
+
+/* Estilo Linear-like para botões */
+button {
+  @apply transition-all rounded-md px-4 py-2 font-medium;
+}
+
+.btn-primary {
+  @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white;
+}
+
+.btn-secondary {
+  @apply bg-[var(--surface)] hover:bg-[var(--surface-hover)] 
+         border border-[var(--border)] text-[var(--text-primary)];
+}
+
+/* Estilo Linear-like para cards */
+.card {
+  @apply bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4
+         hover:border-[var(--border)] transition-all;
+}
+
+/* Estilo Linear-like para badges */
+.badge {
+  @apply px-2 py-1 rounded text-xs font-medium;
+} 

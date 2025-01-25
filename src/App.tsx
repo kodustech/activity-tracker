@@ -100,47 +100,47 @@ function App() {
   }, [selectedDate]);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--text-primary)]">
+      <div className="max-w-6xl mx-auto p-6">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-semibold">
             {currentView === 'activities' ? 'Activity Tracker' : 'Settings'}
           </h1>
           <button
             onClick={() => setCurrentView(currentView === 'activities' ? 'settings' : 'activities')}
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            className="btn-secondary"
           >
             {currentView === 'activities' ? 'Settings' : 'Back to Activities'}
           </button>
         </div>
 
         {currentView === 'activities' ? (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full p-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className="w-full"
             />
             
             {!loading && !error && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-2">
+              <div className="card space-y-4">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Daily Summary</h2>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                  <h2 className="text-lg font-medium">Daily Summary</h2>
+                  <span className="text-[var(--text-secondary)]">
                     {new Date(selectedDate).toLocaleDateString()}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Total Time</p>
-                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <p className="text-[var(--text-secondary)] mb-1">Total Time</p>
+                    <p className="text-xl font-medium">
                       {formatDuration(stats.total_time)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Productive Time</p>
-                    <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                    <p className="text-[var(--text-secondary)] mb-1">Productive Time</p>
+                    <p className="text-xl font-medium text-[var(--success)]">
                       {formatDuration(stats.productive_time)}
                     </p>
                   </div>
@@ -149,47 +149,51 @@ function App() {
             )}
             
             {loading ? (
-              <div className="text-center py-4">Loading...</div>
+              <div className="text-center py-8 text-[var(--text-secondary)]">Loading...</div>
             ) : error ? (
-              <div className="text-red-500 text-center py-4">{error}</div>
+              <div className="text-center py-8 text-[var(--error)]">{error}</div>
             ) : activities.length === 0 ? (
-              <div className="text-center py-4">No activities found for this date.</div>
+              <div className="text-center py-8 text-[var(--text-secondary)]">No activities found for this date.</div>
             ) : (
               <div className="space-y-4">
                 {stats.top_applications.map((app) => (
-                  <div key={app.application} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                  <div key={app.application} className="card">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-gray-900 dark:text-white">
+                      <div className="flex items-center space-x-3">
+                        <span className="font-medium">
                           {app.application}
                         </span>
                         {app.category && (
                           <span
-                            className="px-2 py-1 text-xs rounded text-white"
-                            style={{ backgroundColor: app.category.color }}
+                            className="badge"
+                            style={{ 
+                              backgroundColor: app.category.color,
+                              color: 'white',
+                              opacity: 0.9
+                            }}
                           >
                             {app.category.name}
                           </span>
                         )}
                       </div>
-                      <span className="text-gray-600 dark:text-gray-300">
+                      <span className="text-[var(--text-secondary)]">
                         {formatDuration(app.total_duration)}
                       </span>
                     </div>
                     
-                    <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="mt-2 text-sm text-[var(--text-secondary)]">
                       {new Date(app.activities[0].start_time).toLocaleTimeString()} -{' '}
                       {new Date(app.activities[app.activities.length - 1].end_time).toLocaleTimeString()}
                     </div>
 
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-4 space-y-3">
                       {app.activities.map((activity) => (
                         <div 
                           key={activity.id}
-                          className="text-sm pl-4 py-1 border-l-2 border-gray-200 dark:border-gray-700"
+                          className="pl-4 border-l border-[var(--border)] text-sm"
                         >
-                          <div className="text-gray-700 dark:text-gray-300">{activity.title}</div>
-                          <div className="text-gray-500 dark:text-gray-400">
+                          <div className="text-[var(--text-primary)]">{activity.title}</div>
+                          <div className="text-[var(--text-secondary)]">
                             {new Date(activity.start_time).toLocaleTimeString()} -{' '}
                             {new Date(activity.end_time).toLocaleTimeString()}
                           </div>
