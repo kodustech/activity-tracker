@@ -5,10 +5,13 @@ mod database;
 mod tracker;
 mod commands;
 mod menu;
+mod category;
 
 use anyhow::Result;
 use tauri::Manager;
 use tracing::{info, error};
+use std::sync::Mutex;
+use category::CategoryConfig;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -39,15 +42,37 @@ async fn main() -> Result<()> {
         tracker.start_tracking().await;
     });
 
+    // Carrega a configuração de categorias
+    let category_config = match CategoryConfig::load() {
+        Ok(config) => {
+            info!("Category configuration loaded successfully with {} categories", config.categories.len());
+            info!("Categories: {:?}", config.categories);
+            config
+        },
+        Err(e) => {
+            error!("Failed to load category configuration: {}", e);
+            info!("Creating default configuration");
+            CategoryConfig::default()
+        }
+    };
+
     // Inicia a aplicação Tauri
     tauri::Builder::default()
         .manage(db_for_state)
+        .manage(Mutex::new(category_config))
         .system_tray(menu::create_tray_menu())
         .on_system_tray_event(menu::handle_tray_event)
         .invoke_handler(tauri::generate_handler![
             commands::get_activities,
             commands::get_daily_stats,
             commands::get_activities_for_day,
+            commands::get_categories,
+            commands::get_app_categories,
+            commands::add_category,
+            commands::update_category,
+            commands::delete_category,
+            commands::set_app_category,
+            commands::get_uncategorized_apps,
         ])
         .setup(|app| {
             let window = app.get_window("main").unwrap();

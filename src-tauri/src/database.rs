@@ -243,4 +243,13 @@ pub async fn get_activities_for_day(
 
     debug!("Found {} activities for day {}", activities.len(), date.date_naive());
     Ok(activities)
+}
+
+pub async fn get_unique_applications(conn: &DbConnection) -> Result<Vec<String>> {
+    let conn = conn.lock().await;
+    let mut stmt = conn.prepare("SELECT DISTINCT application FROM activities")?;
+    let apps = stmt
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<Vec<String>, _>>()?;
+    Ok(apps)
 } 

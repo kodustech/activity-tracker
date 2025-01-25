@@ -5,6 +5,7 @@ use tracing::info;
 mod database;
 mod tracker;
 mod commands;
+mod category;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
