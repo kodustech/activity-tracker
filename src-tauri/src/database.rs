@@ -1,6 +1,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::types::ToSql;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
@@ -20,19 +21,35 @@ pub async fn init_database() -> Result<DbConnection> {
     )?;
     
     info!("Creating table");
-    conn.execute_batch(
-        r#"
-        CREATE TABLE IF NOT EXISTS activities (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS activities (
+            id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
             application TEXT NOT NULL,
             start_time TEXT NOT NULL,
             end_time TEXT NOT NULL,
             is_browser BOOLEAN NOT NULL,
-            url TEXT
-        );
-        "#,
+            url TEXT,
+            is_idle BOOLEAN NOT NULL DEFAULT 0
+        )",
+        [],
     )?;
+
+    // Verifica se a coluna is_idle existe
+    let columns: Vec<String> = conn
+        .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='activities'")?
+        .query_map([], |row| row.get(0))?
+        .collect::<Result<Vec<String>, _>>()?;
+
+    if let Some(create_sql) = columns.first() {
+        if !create_sql.contains("is_idle") {
+            info!("Adding is_idle column");
+            conn.execute(
+                "ALTER TABLE activities ADD COLUMN is_idle BOOLEAN NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+    }
 
     info!("Database initialized successfully");
     Ok(Arc::new(Mutex::new(conn)))
@@ -40,29 +57,22 @@ pub async fn init_database() -> Result<DbConnection> {
 
 pub async fn save_activity(conn: &DbConnection, activity: &WindowActivity) -> Result<i64> {
     let conn = conn.lock().await;
-    let day = activity.start_time.date_naive().to_string();
-    
-    debug!("Saving activity: {} - {}", activity.application, activity.title);
-    conn.execute(
-        r#"
-        INSERT INTO activities (
-            title, application, start_time, end_time, 
-            is_browser, url, day
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        "#,
-        params![
-            activity.title,
-            activity.application,
-            activity.start_time.to_rfc3339(),
-            activity.end_time.to_rfc3339(),
-            activity.is_browser,
-            activity.url,
-            day,
-        ],
+    let mut stmt = conn.prepare(
+        "INSERT INTO activities (title, application, start_time, end_time, is_browser, url, is_idle)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
     )?;
-
-    Ok(conn.last_insert_rowid())
+    
+    let id = stmt.insert([
+        &activity.title as &dyn ToSql,
+        &activity.application,
+        &activity.start_time.to_rfc3339(),
+        &activity.end_time.to_rfc3339(),
+        &activity.is_browser,
+        &activity.url,
+        &activity.is_idle,
+    ])?;
+    
+    Ok(id)
 }
 
 pub async fn get_activities_between(
@@ -75,7 +85,7 @@ pub async fn get_activities_between(
     
     let mut stmt = conn.prepare(
         r#"
-        SELECT title, application, start_time, end_time, is_browser, url
+        SELECT title, application, start_time, end_time, is_browser, url, is_idle
         FROM activities
         WHERE start_time >= ? AND end_time <= ?
         ORDER BY start_time DESC
@@ -109,6 +119,7 @@ pub async fn get_activities_between(
                         ))?.with_timezone(&Utc),
                     is_browser: row.get(4)?,
                     url: row.get(5)?,
+                    is_idle: row.get(6).unwrap_or(false),
                 })
             },
         )?
@@ -125,19 +136,25 @@ pub async fn merge_activity(
 ) -> Result<()> {
     let conn = conn.lock().await;
     
-    debug!(
-        "Trying to merge activity: {} - {}",
-        activity.application, activity.title
+    info!(
+        "🔍 Merging activity: {} - {} | Idle: {} | {} -> {}",
+        activity.application,
+        activity.title,
+        activity.is_idle,
+        activity.start_time.format("%H:%M:%S"),
+        activity.end_time.format("%H:%M:%S")
     );
 
-    let similar: Option<(i64, DateTime<Utc>)> = conn
+    // Primeiro tenta encontrar uma atividade similar recente
+    let similar: Option<(i64, DateTime<Utc>, bool)> = conn
         .query_row(
             r#"
-            SELECT id, end_time
+            SELECT id, end_time, is_idle
             FROM activities
             WHERE application = ?
               AND title = ?
               AND is_browser = ?
+              AND is_idle = ?  -- Só mescla se o estado de idle for o mesmo
               AND date(start_time) = date(?)
               AND (strftime('%s', ?) - strftime('%s', end_time)) <= ?
             ORDER BY end_time DESC
@@ -147,6 +164,7 @@ pub async fn merge_activity(
                 activity.application,
                 activity.title,
                 activity.is_browser,
+                activity.is_idle,
                 activity.start_time.to_rfc3339(),
                 activity.start_time.to_rfc3339(),
                 threshold_seconds,
@@ -161,26 +179,41 @@ pub async fn merge_activity(
                             rusqlite::types::Type::Text,
                             Box::new(e),
                         ))?.with_timezone(&Utc),
+                    row.get(2)?,
                 ))
             },
         )
         .optional()?;
 
-    if let Some((id, _)) = similar {
-        debug!("Updating existing activity {}", id);
+    if let Some((id, end_time, is_idle)) = similar {
+        info!(
+            "🔄 Updating activity {} | Idle: {} -> {} | End: {} -> {}",
+            id,
+            is_idle,
+            activity.is_idle,
+            end_time.format("%H:%M:%S"),
+            activity.end_time.format("%H:%M:%S")
+        );
+        
         conn.execute(
             "UPDATE activities SET end_time = ? WHERE id = ?",
             params![activity.end_time.to_rfc3339(), id],
         )?;
     } else {
-        debug!("Creating new activity");
+        info!(
+            "➕ New activity | Idle: {} | {} -> {}",
+            activity.is_idle,
+            activity.start_time.format("%H:%M:%S"),
+            activity.end_time.format("%H:%M:%S")
+        );
+        
         conn.execute(
             r#"
             INSERT INTO activities (
                 title, application, start_time, end_time, 
-                is_browser, url
+                is_browser, url, is_idle
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             "#,
             params![
                 activity.title,
@@ -189,6 +222,7 @@ pub async fn merge_activity(
                 activity.end_time.to_rfc3339(),
                 activity.is_browser,
                 activity.url,
+                activity.is_idle,
             ],
         )?;
     }
@@ -205,7 +239,7 @@ pub async fn get_activities_for_day(
     
     let mut stmt = conn.prepare(
         r#"
-        SELECT title, application, start_time, end_time, is_browser, url
+        SELECT title, application, start_time, end_time, is_browser, url, is_idle
         FROM activities
         WHERE date(start_time) = date(?)
         ORDER BY start_time DESC
@@ -236,6 +270,7 @@ pub async fn get_activities_for_day(
                         ))?.with_timezone(&Utc),
                     is_browser: row.get(4)?,
                     url: row.get(5)?,
+                    is_idle: row.get(6).unwrap_or(false),
                 })
             },
         )?

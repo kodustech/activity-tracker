@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc, Duration, NaiveDateTime, Datelike};
+use chrono::{DateTime, Utc, Duration, Datelike};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use std::sync::Mutex;
@@ -20,6 +20,7 @@ pub struct DailyStats {
     pub total_time: i64,
     pub productive_time: i64,
     pub goal_percentage: i64,
+    pub idle_time: i64,
     pub top_applications: Vec<ApplicationStats>,
     pub activities: Vec<WindowActivity>,
 }
@@ -28,6 +29,7 @@ pub struct DailyStats {
 pub struct ApplicationStats {
     application: String,
     total_duration: i64,
+    idle_duration: i64,
     activities: Vec<WindowActivity>,
     category: Option<Category>,
 }
@@ -77,17 +79,35 @@ pub async fn get_daily_stats(
                 .map(|a| (a.end_time - a.start_time).num_seconds())
                 .sum();
             
+            let idle_duration = activities.iter()
+                .filter(|a| a.is_idle)
+                .map(|a| (a.end_time - a.start_time).num_seconds())
+                .sum();
+            
             let category = config.get_category_for_app(&app).cloned();
             info!(
-                "App: {}, Category: {:?}, Duration: {}",
+                "📊 App Stats - {} | Total: {}s, Idle: {}s | Activities: {}",
                 app,
-                category.as_ref().map(|c| &c.name),
-                total_duration
+                total_duration,
+                idle_duration,
+                activities.len()
             );
+
+            // Log de cada atividade para debug
+            for activity in activities.iter() {
+                info!(
+                    "  └─ {} -> {} | Idle: {} | Duration: {}s",
+                    activity.start_time.format("%H:%M:%S"),
+                    activity.end_time.format("%H:%M:%S"),
+                    activity.is_idle,
+                    (activity.end_time - activity.start_time).num_seconds()
+                );
+            }
             
             ApplicationStats {
                 application: app,
                 total_duration,
+                idle_duration,
                 activities,
                 category,
             }
@@ -102,19 +122,20 @@ pub async fn get_daily_stats(
         .map(|app| app.total_duration)
         .sum();
 
+    let idle_time: i64 = top_applications.iter()
+        .map(|app| app.idle_duration)
+        .sum();
+
+    info!(
+        "📈 Total Stats | Total: {}s, Idle: {}s, Apps: {}",
+        total_time,
+        idle_time,
+        top_applications.len()
+    );
+
     let productive_time: i64 = top_applications.iter()
-        .filter(|app| {
-            let is_productive = app.category.as_ref().map_or(false, |c| c.is_productive);
-            info!(
-                "App: {}, Duration: {}, Category: {:?}, Is Productive: {}",
-                app.application,
-                app.total_duration,
-                app.category.as_ref().map(|c| &c.name),
-                is_productive
-            );
-            is_productive
-        })
-        .map(|app| app.total_duration)
+        .filter(|app| app.category.as_ref().map_or(false, |c| c.is_productive))
+        .map(|app| app.total_duration - app.idle_duration)
         .sum();
 
     // Calcula a porcentagem da meta
@@ -130,6 +151,7 @@ pub async fn get_daily_stats(
     Ok(DailyStats {
         total_time,
         productive_time,
+        idle_time,
         goal_percentage,
         top_applications: top_applications.into_iter().take(5).collect(),
         activities,
@@ -316,11 +338,17 @@ pub async fn get_today_stats_internal(
                 .map(|a| (a.end_time - a.start_time).num_seconds())
                 .sum();
             
+            let idle_duration = activities.iter()
+                .filter(|a| a.is_idle)
+                .map(|a| (a.end_time - a.start_time).num_seconds())
+                .sum();
+            
             let category = config.get_category_for_app(&app).cloned();
             
             ApplicationStats {
                 application: app,
                 total_duration,
+                idle_duration,
                 activities,
                 category,
             }
@@ -332,9 +360,13 @@ pub async fn get_today_stats_internal(
         .map(|app| app.total_duration)
         .sum();
 
+    let idle_time: i64 = top_applications.iter()
+        .map(|app| app.idle_duration)
+        .sum();
+
     let productive_time: i64 = top_applications.iter()
         .filter(|app| app.category.as_ref().map_or(false, |c| c.is_productive))
-        .map(|app| app.total_duration)
+        .map(|app| app.total_duration - app.idle_duration)
         .sum();
 
     Ok((total_time, productive_time))
@@ -431,11 +463,17 @@ async fn get_stats_for_range(
                 .map(|a| (a.end_time - a.start_time).num_seconds())
                 .sum();
             
+            let idle_duration = activities.iter()
+                .filter(|a| a.is_idle)
+                .map(|a| (a.end_time - a.start_time).num_seconds())
+                .sum();
+            
             let category = config.get_category_for_app(&app).cloned();
             
             ApplicationStats {
                 application: app,
                 total_duration,
+                idle_duration,
                 activities,
                 category,
             }
@@ -450,9 +488,13 @@ async fn get_stats_for_range(
         .map(|app| app.total_duration)
         .sum();
 
+    let idle_time: i64 = top_applications.iter()
+        .map(|app| app.idle_duration)
+        .sum();
+
     let productive_time: i64 = top_applications.iter()
         .filter(|app| app.category.as_ref().map_or(false, |c| c.is_productive))
-        .map(|app| app.total_duration)
+        .map(|app| app.total_duration - app.idle_duration)
         .sum();
 
     // Calcula a porcentagem da meta
@@ -466,6 +508,7 @@ async fn get_stats_for_range(
     Ok(DailyStats {
         total_time,
         productive_time,
+        idle_time,
         goal_percentage,
         top_applications: top_applications.into_iter().take(5).collect(),
         activities,
