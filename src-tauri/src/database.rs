@@ -5,14 +5,39 @@ use rusqlite::types::ToSql;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tracing::{debug, info};
+use std::path::PathBuf;
 
 use crate::tracker::WindowActivity;
 
 pub type DbConnection = Arc<Mutex<Connection>>;
 
+fn get_database_path() -> Result<PathBuf> {
+    let app_support = if cfg!(target_os = "macos") {
+        dirs::home_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?
+            .join("Library")
+            .join("Application Support")
+            .join("com.chronos.track")
+    } else if cfg!(target_os = "windows") {
+        dirs::data_local_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not find local data directory"))?
+            .join("com.chronos.track")
+    } else {
+        dirs::data_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not find data directory"))?
+            .join("com.chronos.track")
+    };
+
+    std::fs::create_dir_all(&app_support)?;
+    Ok(app_support.join("chronos.db"))
+}
+
 pub async fn init_database() -> Result<DbConnection> {
     info!("Initializing database");
-    let conn = Connection::open("chronos.db")?;
+    let db_path = get_database_path()?;
+    info!("Database path: {:?}", db_path);
+    
+    let conn = Connection::open(db_path)?;
     
     // Habilita chaves estrangeiras e usa o modo DELETE para o journal
     conn.execute_batch(

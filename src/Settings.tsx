@@ -74,24 +74,6 @@ export function Settings() {
     }
   };
 
-  const handleUpdateCategory = async (category: Category) => {
-    try {
-      await invoke('update_category', {
-        id: category.id,
-        name: category.name,
-        color: category.color,
-        is_productive: category.is_productive,
-      });
-
-      setCategories(
-        categories.map((c) => (c.id === category.id ? category : c))
-      );
-    } catch (err) {
-      console.error('Error updating category:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update category');
-    }
-  };
-
   const handleDeleteCategory = async (id: string) => {
     try {
       await invoke('delete_category', { id });

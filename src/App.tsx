@@ -8,13 +8,6 @@ import { DailyStats, WindowActivity } from './types/activity';
 
 type View = 'activities' | 'settings' | 'analytics';
 
-interface Category {
-  id: string;
-  name: string;
-  color: string;
-  is_productive: boolean;
-}
-
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -85,12 +78,13 @@ function App() {
     }
   };
 
+  let refreshInterval: NodeJS.Timeout;
+
   useEffect(() => {
     fetchActivities(selectedDate);
 
     // Auto-refresh a cada 30 segundos se estiver visualizando o dia atual
     const isToday = selectedDate === new Date().toISOString().split('T')[0];
-    let refreshInterval: number | undefined;
 
     if (isToday) {
       refreshInterval = setInterval(() => {

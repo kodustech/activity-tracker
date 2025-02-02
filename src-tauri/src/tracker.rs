@@ -96,7 +96,7 @@ impl ActivityTracker {
         }
     }
 
-    pub async fn start_tracking(&mut self) {
+    pub async fn start_tracking(&mut self) -> ! {
         info!("Starting activity tracking");
         let mut interval = time::interval(Duration::from_secs(5)); // Check every 5 seconds
 
