@@ -7,8 +7,8 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "chronos-track",
-    "version": "0.0.0"
+    "productName": "Activity Tracker",
+    "version": "0.0.1"
   },
   "tauri": {
     "systemTray": {
@@ -41,7 +41,7 @@
       "identifier": "com.chronos.track",
       "longDescription": "",
       "macOS": {
-        "entitlements": null,
+        "entitlements": "entitlements.plist",
         "exceptionDomain": "",
         "frameworks": [],
         "providerShortName": null,
